@@ -829,26 +829,19 @@ select.field option { color: #111; background: #fff; }
     requestAnimationFrame(frame);
   }
 
-  function start(data) {
-    data = data || {};
-    const n = SIZES.includes(data.n) ? data.n : 9;
-    const fromHot = Array.isArray(data.world) && data.world.length === n * n * n ? { n, w: Uint8Array.from(data.world) } : null;
-    const initial = fromHot || load() || { n: 9, w: generate(20261103, 9) };
+  function start() {
+    const initial = load() || { n: 9, w: generate(20261103, 9) };
     setSize(initial.n);
     world = initial.w;
     cam.dist = defaultDist(N);
-    if (typeof data.theta === 'number') { cam.theta = data.theta; cam.phi = data.phi; cam.dist = data.dist; interacted = true; }
-    select(data.sel && data.sel < BLOCKS.length ? data.sel : 1);
-    setMode(data.mode || 'place');
+    select(1);
+    setMode('place');
     applyTheme();
     resize();
     afterChange();
-    window.claude?.hot?.snapshot?.(() => ({
-      n: N, world: Array.from(world), theta: cam.theta, phi: cam.phi, dist: cam.dist, sel, mode,
-    }));
     requestAnimationFrame(frame);
   }
-  window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+  start();
 })();
 </script>
 
