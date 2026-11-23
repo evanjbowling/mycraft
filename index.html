@@ -135,6 +135,43 @@ select.field option { color: #111; background: #fff; }
   position: absolute; top: 2px; left: 4px; font: 9px/1 var(--font-display); color: var(--ink-dim);
 }
 @media (max-width: 420px) { .slot .key { display: none; } .brand h1 { font-size: 22px; } }
+/* Phone-sized viewports: the full-bleed layout makes the canvas cover the whole
+   screen, so every drag is an orbit and the page has nowhere to scroll, leaving
+   the docked tools crowding the world. Switch to a scrolling document — world on
+   top, tools below it in normal flow. touch-action:none stays on the canvas
+   alone, so a drag there still orbits while a drag anywhere else scrolls. */
+@media (max-width: 560px), (max-height: 520px) {
+  html, body { height: auto; }
+  body {
+    min-height: 100vh; min-height: 100svh;
+    overflow: visible; overscroll-behavior-y: contain;
+    display: flex; flex-direction: column;
+  }
+  /* DOM order is stage -> header -> footer; restore reading order once in flow. */
+  .top { order: 1; }
+  #stage { order: 2; }
+  .bottom { order: 3; }
+
+  /* The world takes whatever is left after the header and tools, so both stay
+     on screen when they fit; below min-height the page scrolls instead.
+     flex-basis 0 and an absolutely positioned canvas keep the stage height a
+     function of the leftover space alone — sizing it from the canvas instead
+     feeds renderer.setSize() back into layout and the two chase each other. */
+  #stage {
+    position: relative; flex: 1 1 0; min-height: 240px;
+  }
+  #stage canvas { position: absolute; inset: 0; }
+  .top, .bottom { position: static; pointer-events: auto; }
+  .top { padding-top: 14px; }
+  .bottom {
+    padding-top: 12px;
+    padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Scroll room means room for touch-sized targets */
+  .seg button { padding: 11px 14px; min-height: 44px; }
+  #hotbar { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 
