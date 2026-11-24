@@ -21,6 +21,8 @@
   --danger: #ff7a6b;
   --grid: #2c5375;
   --tint: #ffffff;
+  --page: #e6edf4;
+  --edge: rgba(23, 54, 80, .22);
   --font-display: "Silkscreen", ui-monospace, "SF Mono", Menlo, monospace;
   --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
@@ -28,11 +30,13 @@
   :root:not([data-theme="light"]) {
     --sky-top: #0a1230; --sky-bottom: #2a3b6a; --sky-ink: #e2e9ff; --sky-ink-dim: rgba(226, 233, 255, .66);
     --panel: rgba(6, 10, 22, .72); --grid: #a9bcff; --tint: #a3aed0; color-scheme: dark;
+    --page: #05080f; --edge: rgba(226, 233, 255, .22);
   }
 }
 :root[data-theme="dark"] {
   --sky-top: #0a1230; --sky-bottom: #2a3b6a; --sky-ink: #e2e9ff; --sky-ink-dim: rgba(226, 233, 255, .66);
   --panel: rgba(6, 10, 22, .72); --grid: #a9bcff; --tint: #a3aed0; color-scheme: dark;
+    --page: #05080f; --edge: rgba(226, 233, 255, .22);
 }
 html, body { height: 100%; }
 body {
@@ -159,8 +163,18 @@ select.field option { color: #111; background: #fff; }
      feeds renderer.setSize() back into layout and the two chase each other. */
   #stage {
     position: relative; flex: 1 1 0; min-height: 240px;
+    /* The sky moves off the page and into the stage, so the world reads as a
+       framed screen instead of bleeding into the controls around it. */
+    background-image: linear-gradient(var(--sky-top), var(--sky-bottom));
+    background-color: var(--sky-bottom);
+    margin: 2px max(12px, env(safe-area-inset-left, 0px)) 10px;
+    border: 1px solid var(--edge);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .16);
   }
   #stage canvas { position: absolute; inset: 0; }
+  body { background-image: none; background-color: var(--page); }
   .top, .bottom { position: static; pointer-events: auto; }
   .top { padding-top: 14px; }
   .bottom {
