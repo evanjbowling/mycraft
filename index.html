@@ -40,25 +40,32 @@
 }
 html, body { height: 100%; }
 body {
-  background-color: var(--sky-bottom);
-  background-image: linear-gradient(var(--sky-top), var(--sky-bottom));
+  background-color: var(--page);
   color: var(--ink);
   font-family: var(--font-body);
   overflow: hidden;
   -webkit-user-select: none; user-select: none;
 }
-#stage { position: fixed; inset: 0; }
+/* The world is a framed screen, inset from the page at every size, so its
+   edges are always visible rather than bleeding into the surrounding chrome. */
+#stage {
+  position: fixed; inset: 12px;
+  background-color: var(--sky-bottom);
+  background-image: linear-gradient(var(--sky-top), var(--sky-bottom));
+  border: 1px solid var(--edge); border-radius: 14px; overflow: hidden;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .16);
+}
 #stage canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
 #stage canvas:active { cursor: grabbing; }
 
 .top, .bottom {
   position: fixed; left: 0; right: 0; pointer-events: none;
-  padding-left: max(16px, env(safe-area-inset-left, 0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-left: max(28px, env(safe-area-inset-left, 0px));
+  padding-right: max(28px, env(safe-area-inset-right, 0px));
 }
 .top > *, .bottom > * { pointer-events: auto; }
 .top {
-  top: 0; padding-top: calc(14px + env(safe-area-inset-top, 0px));
+  top: 0; padding-top: calc(26px + env(safe-area-inset-top, 0px));
   display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap;
 }
 .brand h1 {
@@ -89,7 +96,7 @@ select.field option { color: #111; background: #fff; }
 }
 
 .bottom {
-  bottom: 0; padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  bottom: 0; padding-bottom: calc(26px + env(safe-area-inset-bottom, 0px));
   display: flex; flex-direction: column; align-items: center; gap: 8px;
 }
 .row {
@@ -162,19 +169,14 @@ select.field option { color: #111; background: #fff; }
      function of the leftover space alone — sizing it from the canvas instead
      feeds renderer.setSize() back into layout and the two chase each other. */
   #stage {
-    position: relative; flex: 1 1 0; min-height: 240px;
-    /* The sky moves off the page and into the stage, so the world reads as a
-       framed screen instead of bleeding into the controls around it. */
-    background-image: linear-gradient(var(--sky-top), var(--sky-bottom));
-    background-color: var(--sky-bottom);
+    position: relative; inset: auto; flex: 1 1 0; min-height: 240px;
     margin: 2px max(12px, env(safe-area-inset-left, 0px)) 10px;
-    border: 1px solid var(--edge);
-    border-radius: 14px;
-    overflow: hidden;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, .16);
   }
   #stage canvas { position: absolute; inset: 0; }
-  body { background-image: none; background-color: var(--page); }
+  .top, .bottom {
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
   .top, .bottom { position: static; pointer-events: auto; }
   .top { padding-top: 14px; }
   .bottom {
