@@ -1,1 +1,5 @@
 .DS_Store
+
+# Local-only scratch space: worktrees
+/gitignore/*
+!/gitignore/.gitkeep
