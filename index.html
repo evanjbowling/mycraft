@@ -210,6 +210,7 @@ select.field option { color: #111; background: #fff; }
       <input class="field" id="emoji" value="😀" maxlength="16" autocomplete="off" aria-label="Emoji to build">
       <button class="btn" type="submit">Build emoji</button>
     </form>
+    <button class="btn" id="share" type="button" title="Copy a link to this world">Share</button>
     <button class="btn" id="undo" type="button" title="Undo (Ctrl/⌘ Z)">Undo</button>
     <button class="btn" id="regen" type="button">New island</button>
     <button class="btn" id="clear" type="button">Clear</button>
@@ -690,6 +691,103 @@ select.field option { color: #111; background: #fff; }
     } catch (e) { return null; }
   }
 
+  // ---------- Shareable state ----------
+  // A link carries the world in one query parameter: a version byte followed by
+  // tagged chunks of [tag][varint length][bytes]. A reader skips tags it does
+  // not know, so fields can be added later (camera, mode, ...) without breaking
+  // links already in the wild, and old links keep working.
+  const SHARE_V = 1, SHARE_PARAM = 's', TAG_SIZE = 110 /* n */, TAG_WORLD = 119 /* w */;
+
+  function b64url(bytes) {
+    let s = '';
+    for (let i = 0; i < bytes.length; i += 8192) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+    return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function unb64url(str) {
+    const bin = atob(str.replace(/-/g, '+').replace(/_/g, '/'));
+    return Uint8Array.from(bin, c => c.charCodeAt(0));
+  }
+  function putVarint(out, v) { while (v > 127) { out.push((v & 127) | 128); v >>>= 7; } out.push(v); }
+  // Reads a varint at cur.p, advancing it. Returns -1 if the buffer runs out.
+  function getVarint(b, cur, end) {
+    let v = 0, shift = 0, byte;
+    do {
+      if (cur.p >= end) return -1;
+      byte = b[cur.p++];
+      v |= (byte & 127) << shift;
+      shift += 7;
+    } while (byte & 128);
+    return v;
+  }
+
+  // Voxel worlds are mostly air, so runs compress them far below the raw cube.
+  function rleEncode(w) {
+    const out = [];
+    for (let i = 0; i < w.length;) {
+      const v = w[i];
+      let j = i + 1;
+      while (j < w.length && w[j] === v) j++;
+      out.push(v);
+      putVarint(out, j - i);
+      i = j;
+    }
+    return out;
+  }
+  function rleDecode(b, start, end, total) {
+    const w = new Uint8Array(total), cur = { p: start };
+    let o = 0;
+    while (cur.p < end) {
+      const v = b[cur.p++];
+      const count = getVarint(b, cur, end);
+      if (count < 0 || o + count > total) return null;
+      w.fill(v, o, o + count);
+      o += count;
+    }
+    return o === total ? w : null;
+  }
+
+  function encodeState() {
+    const out = [SHARE_V];
+    out.push(TAG_SIZE); putVarint(out, 1); out.push(N);
+    const rle = rleEncode(world);
+    out.push(TAG_WORLD); putVarint(out, rle.length);
+    for (let i = 0; i < rle.length; i++) out.push(rle[i]);
+    return b64url(Uint8Array.from(out));
+  }
+  function decodeState(str) {
+    try {
+      const b = unb64url(str);
+      if (!b.length || b[0] !== SHARE_V) return null;
+      const cur = { p: 1 };
+      let n = 0, wStart = -1, wEnd = -1;
+      while (cur.p < b.length) {
+        const tag = b[cur.p++];
+        const len = getVarint(b, cur, b.length);
+        if (len < 0 || cur.p + len > b.length) return null;
+        const end = cur.p + len;
+        if (tag === TAG_SIZE && len === 1) n = b[cur.p];
+        else if (tag === TAG_WORLD) { wStart = cur.p; wEnd = end; }
+        cur.p = end;                                  // unknown tag: skip it
+      }
+      if (!SIZES.includes(n) || wStart < 0) return null;
+      const w = rleDecode(b, wStart, wEnd, n * n * n);
+      return w && w.every(v => v < BLOCKS.length) ? { n, w } : null;
+    } catch (e) { return null; }
+  }
+
+  // Same host and path as the page itself, so it works on localhost and in prod.
+  function shareUrl() {
+    const u = new URL(location.href);
+    u.search = '';
+    u.hash = '';
+    u.searchParams.set(SHARE_PARAM, encodeState());
+    return u.toString();
+  }
+  function fromUrl() {
+    const s = new URLSearchParams(location.search).get(SHARE_PARAM);
+    return s ? decodeState(s) : null;
+  }
+
   function setSize(n) {
     N = n; H = n / 2; SIZE = n * n * n;
     sizeSel.value = String(n);
@@ -719,6 +817,15 @@ select.field option { color: #111; background: #fff; }
   undoBtn.addEventListener('click', undo);
   document.getElementById('regen').addEventListener('click', () => commit(generate((Math.random() * 1e9) | 0, N)));
   document.getElementById('clear').addEventListener('click', () => commit(new Uint8Array(SIZE)));
+  document.getElementById('share').addEventListener('click', () => {
+    const url = shareUrl();
+    // Put it in the address bar too, so the link is still reachable if the
+    // clipboard is unavailable (non-secure origin, denied permission).
+    try { history.replaceState(null, '', url); } catch (e) {}
+    navigator.clipboard?.writeText(url)
+      .then(() => say('Link copied'))
+      .catch(() => say('Link is in the address bar'));
+  });
   sizeSel.addEventListener('change', () => {
     const n = +sizeSel.value;
     if (n === N) return;
@@ -883,7 +990,8 @@ select.field option { color: #111; background: #fff; }
   }
 
   function start() {
-    const initial = load() || { n: 9, w: generate(20261103, 9) };
+    const shared = fromUrl();
+    const initial = shared || load() || { n: 9, w: generate(20261103, 9) };
     setSize(initial.n);
     world = initial.w;
     cam.dist = defaultDist(N);
@@ -892,6 +1000,7 @@ select.field option { color: #111; background: #fff; }
     applyTheme();
     resize();
     afterChange();
+    if (shared) say('Opened a shared world');
     requestAnimationFrame(frame);
   }
   start();
